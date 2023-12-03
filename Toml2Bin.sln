@@ -7,6 +7,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Toml2Bin", "Toml2Bin\Toml2B
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TOML2Pbf", "TOML2Pbf\TOML2Pbf.vcxproj", "{7CA7FB1A-E738-4755-B304-1231B09CA0A9}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ParamBinCpp", "ParamBinCpp\ParamBinCpp.vcxproj", "{EBCFF42E-B6E1-4B2C-A615-884629DCB553}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -31,6 +33,14 @@ Global
 		{7CA7FB1A-E738-4755-B304-1231B09CA0A9}.Release|x64.Build.0 = Release|x64
 		{7CA7FB1A-E738-4755-B304-1231B09CA0A9}.Release|x86.ActiveCfg = Release|Win32
 		{7CA7FB1A-E738-4755-B304-1231B09CA0A9}.Release|x86.Build.0 = Release|Win32
+		{EBCFF42E-B6E1-4B2C-A615-884629DCB553}.Debug|x64.ActiveCfg = Debug|x64
+		{EBCFF42E-B6E1-4B2C-A615-884629DCB553}.Debug|x64.Build.0 = Debug|x64
+		{EBCFF42E-B6E1-4B2C-A615-884629DCB553}.Debug|x86.ActiveCfg = Debug|Win32
+		{EBCFF42E-B6E1-4B2C-A615-884629DCB553}.Debug|x86.Build.0 = Debug|Win32
+		{EBCFF42E-B6E1-4B2C-A615-884629DCB553}.Release|x64.ActiveCfg = Release|x64
+		{EBCFF42E-B6E1-4B2C-A615-884629DCB553}.Release|x64.Build.0 = Release|x64
+		{EBCFF42E-B6E1-4B2C-A615-884629DCB553}.Release|x86.ActiveCfg = Release|Win32
+		{EBCFF42E-B6E1-4B2C-A615-884629DCB553}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
