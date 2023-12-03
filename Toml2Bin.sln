@@ -5,6 +5,8 @@ VisualStudioVersion = 17.4.33213.308
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Toml2Bin", "Toml2Bin\Toml2Bin.vcxproj", "{5271D515-E568-4321-A84E-59BA8E4A1F47}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TOML2Pbf", "TOML2Pbf\TOML2Pbf.vcxproj", "{7CA7FB1A-E738-4755-B304-1231B09CA0A9}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -21,6 +23,14 @@ Global
 		{5271D515-E568-4321-A84E-59BA8E4A1F47}.Release|x64.Build.0 = Release|x64
 		{5271D515-E568-4321-A84E-59BA8E4A1F47}.Release|x86.ActiveCfg = Release|Win32
 		{5271D515-E568-4321-A84E-59BA8E4A1F47}.Release|x86.Build.0 = Release|Win32
+		{7CA7FB1A-E738-4755-B304-1231B09CA0A9}.Debug|x64.ActiveCfg = Debug|x64
+		{7CA7FB1A-E738-4755-B304-1231B09CA0A9}.Debug|x64.Build.0 = Debug|x64
+		{7CA7FB1A-E738-4755-B304-1231B09CA0A9}.Debug|x86.ActiveCfg = Debug|Win32
+		{7CA7FB1A-E738-4755-B304-1231B09CA0A9}.Debug|x86.Build.0 = Debug|Win32
+		{7CA7FB1A-E738-4755-B304-1231B09CA0A9}.Release|x64.ActiveCfg = Release|x64
+		{7CA7FB1A-E738-4755-B304-1231B09CA0A9}.Release|x64.Build.0 = Release|x64
+		{7CA7FB1A-E738-4755-B304-1231B09CA0A9}.Release|x86.ActiveCfg = Release|Win32
+		{7CA7FB1A-E738-4755-B304-1231B09CA0A9}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
