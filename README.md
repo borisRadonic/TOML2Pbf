@@ -14,11 +14,13 @@
 - **Hash-Based Key Management**: In the PBF format, keys are represented as hash values, allowing for fast and efficient data retrieval.
 - **Diverse Data Type Support**: TOML2Pbf supports a wide range of data types, including String, Int8, UInt8, Int16, UInt16, Int32, UInt32, Int64, UInt64, Float32, Float64, Boolean, Date, Time, and DateTime.
 
+![](https://github.com/borisRadonic/TOML2Pbf/blob/master/toml2pbf.png)
+
 ## Example Usage
 For embedded platforms, TOML2Pbf facilitates easy access to configuration parameters from the PBF file. For instance, in C++:
 
 ```cpp
 float maxAccel = pbfReader.Read("Controller.Motor1.MaxAcceleration");
 
-![](https://github.com/borisRadonic/TOML2Pbf/blob/master/toml2pbf.png)
+
 
