@@ -4,6 +4,25 @@
 
 namespace PBF
 {
+    const std::uint32_t PBF_FILE_HEADER_SIZE = sizeof(std::uint32_t) * 3U;
+    const std::uint32_t PBF_FILE_RECORD_HEADER_SIZE = 8U;
+
+    const std::uint16_t PBF_FILE_VERSION = 1U;
+
+    inline std::uint32_t pbfHash(std::string_view text)
+    {
+        //fnv1aHash
+        const std::uint32_t prime = 0x01000193; // 16777619
+        std::uint32_t hash = 0x811C9DC5; // 2166136261
+
+        for (char c : text)
+        {
+            hash ^= static_cast<std::uint32_t>(c);
+            hash *= prime;
+        }
+        return hash;
+    };
+
     /**
      * @enum DataTypes
      * @brief Enumeration for different data types supported in binary data records.
@@ -46,8 +65,8 @@ namespace PBF
         std::uint8_t type = static_cast<std::uint8_t>(DataTypes::None); /**< Data type, represented as a byte. */
         std::uint8_t reserved = 0U;
         std::uint16_t data_size = 0U; /**< Size of the data in bytes (from 1 to 65536). */
-       
-        //... data from Min. 1 to Max. 250 bytes (Min. size with padding is 2)
+        std::string strData;
+        //... data from Min. 2 to Max. 65536 bytes (Min. size with 32 bit padding)
     };
 
     //Structure of the param file is
@@ -64,58 +83,63 @@ namespace PBF
 	{
     public:
 
-        explicit ParamBinFileWriter (void* memory): _memory(memory), _start(memory)
+        ParamBinFileWriter() = delete;
+
+        explicit ParamBinFileWriter (void* memory, std::size_t size): _memory(memory), _start(memory)
         {
         }
 
-        void writeHeader(std::uint32_t size, uint16_t version)
+        std::uint32_t writeHeader(std::uint32_t size, uint16_t version)
         {            
             if (_start != nullptr)
             {
                 void* mem = _start;
                 uint32_t* pMem = static_cast<uint32_t*>(mem);
-                memcpy(pMem, &size, sizeof(uint32_t));
+                memcpy(pMem, static_cast<void*>(&size), sizeof(uint32_t));
                 pMem++;
 
                 uint32_t v = version << 16U;
-                memcpy(pMem, &v, sizeof(uint32_t));
+                memcpy(pMem, static_cast<void*>(&v), sizeof(uint32_t));
                 pMem++;
 
                 uint32_t reserved(0U);
-                memcpy(pMem, &reserved, sizeof(uint32_t));
+                memcpy(pMem, static_cast<void*>(&reserved), sizeof(uint32_t));
                 pMem++;
  
                 _memory = static_cast<void*>(pMem);
+
+                return PBF_FILE_HEADER_SIZE;
             }
+            return 0U;
         }
-        void writeRecord(BinaryDataRecord& record, void* data)
+
+        std::uint32_t writeRecord(BinaryDataRecord& record, void* data)
         {
             uint32_t* pMem = static_cast<uint32_t*>(_memory);
             // Write the hash
-            memcpy(pMem, &(record.hash), sizeof(uint32_t));
+            memcpy(pMem, static_cast<void*>(&(record.hash)), sizeof(uint32_t));
             pMem++;
 
-           /*
-            std::uint32_t hash
-            std::uint8_t type
-            std::uint8_t reserved
-            std::uint16_t data_size
-           */
+            std::uint32_t recSize = PBF_FILE_RECORD_HEADER_SIZE;
 
-            DataTypes type = static_cast< DataTypes>(record.type);
+            DataTypes type = static_cast<DataTypes>(record.type);
             switch (type)
             {
                 case DataTypes::String:
                 {
                     // Handle string; assume data_size gives the string length
-                    char* str = static_cast<char*>(data);
+                    char* str = const_cast<char*>( record.strData.c_str() );
                     std::uint32_t reg1 = (record.type << 24U) | record.data_size;
-                    memcpy(pMem, &reg1, sizeof(uint32_t));
+                    memcpy(pMem, static_cast<void*>(&reg1), sizeof(uint32_t));
                     pMem++;
+                                       
+                    memcpy(pMem, static_cast<void*>(str), record.data_size);
 
-                    memcpy(pMem, str, record.data_size);
-                    pMem += (record.data_size + sizeof(uint32_t) - 1) / sizeof(uint32_t); // Align to next 32-bit boundary
-                    
+                    std::uint32_t size = (record.data_size + sizeof(uint32_t) - 1) / sizeof(uint32_t); // Align to next 32-bit boundary
+                    pMem += size;
+                    size = size * sizeof(std::uint32_t);
+                    recSize += size;
+
                     break;
                 }
                 case DataTypes::Int8:
@@ -124,26 +148,29 @@ namespace PBF
                 {
                     uint8_t byte = *static_cast<std::uint8_t*>(data);
                     std::uint32_t reg1 = (record.type << 24U) | record.data_size;
-                    memcpy(pMem, &reg1, sizeof(uint32_t));
+                    memcpy(pMem, static_cast<void*>(&reg1), sizeof(uint32_t));
                     pMem++;
 
                     std::uint32_t reg2 = byte;
-                    memcpy(pMem, &reg2, sizeof(uint32_t));
+                    memcpy(pMem, static_cast<void*>(&reg2), sizeof(uint32_t));
                     pMem++;
 
+                    recSize += 4U;
+
                     break;
-                }               
+                }
                 case DataTypes::Int16:
                 case DataTypes::UInt16:
                 {
-                    std::uint16_t word = *static_cast<std::uint16_t*>(data);
+                    std::uint16_t reg2 = *static_cast<std::uint16_t*>(data);
                     std::uint32_t reg1 = (record.type << 24U) | record.data_size;
-                    memcpy(pMem, &reg1, sizeof(uint32_t));
+                    memcpy(pMem, static_cast<void*>(&reg1), sizeof(uint32_t));
                     pMem++;
 
-                    std::uint32_t reg2 = word;
-                    memcpy(pMem, &reg2, sizeof(uint32_t));
+                    memcpy(pMem, static_cast<void*>(&reg2), sizeof(uint32_t));
                     pMem++;
+
+                    recSize += 4U;
 
                     break;
                 }
@@ -154,11 +181,13 @@ namespace PBF
                 {
                     std::uint32_t reg2 = *static_cast<std::uint32_t*>(data);
                     std::uint32_t reg1 = (record.type << 24U) | record.data_size;
-                    memcpy(pMem, &reg1, sizeof(uint32_t));
+                    memcpy(pMem, static_cast<void*>(&reg1), sizeof(uint32_t));
                     pMem++;
-                                        
-                    memcpy(pMem, &reg2, sizeof(uint32_t));
+
+                    memcpy(pMem, static_cast<void*>(&reg2), sizeof(uint32_t));
                     pMem++;
+
+                    recSize += 4U;
 
                     break;
                 }
@@ -169,40 +198,45 @@ namespace PBF
                 {
                     std::uint64_t reg2 = *static_cast<std::uint64_t*>(data);
                     std::uint32_t reg1 = (record.type << 24U) | record.data_size;
-                   
-                    memcpy(pMem, &reg1, sizeof(uint32_t));
+
+                    memcpy(pMem, static_cast<void*>(&reg1), sizeof(uint32_t));
                     pMem++;
 
-                    memcpy(pMem, &reg2, sizeof(uint64_t));
+                    memcpy(pMem, static_cast<void*>(&reg2), sizeof(uint64_t));
                     pMem++;
                     pMem++;
-                   
+
+                    recSize += 8U;
+
                     break;
                 }
                 case DataTypes::DateTime:
                 {
-                   
+
                     std::uint32_t reg1 = (record.type << 24U) | record.data_size;
                     uint32_t* pDate32 = static_cast<uint32_t*>(data);
                     pDate32++;
-                   
-                    memcpy(pMem, &reg1, sizeof(uint32_t));
+
+                    memcpy(pMem, static_cast<void*>(&reg1), sizeof(uint32_t));
                     pMem++;
 
-                    memcpy(pMem, pDate32, sizeof(uint32_t));
+                    memcpy(pMem, static_cast<void*>(pDate32), sizeof(uint32_t));
                     pMem++;
 
-                    memcpy(pMem, pDate32, sizeof(uint64_t)); //use 32 bit pointer but copy 64 bits (8 bytes)
+                    memcpy(pMem, static_cast<void*>(pDate32), sizeof(uint64_t)); //use 32 bit pointer but copy 64 bits (8 bytes)
                     pMem++;
                     pMem++;
+
+                    recSize += 12U;
 
                     break;;
                 }
                 default:
                     break;
             }
-
             _memory = static_cast<void*>(pMem);
+
+            return recSize;
         }
 
     private:       

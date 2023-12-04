@@ -18,5 +18,13 @@
     <ClCompile Include="TOML2Pbf.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Toml2PbfUtility.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Toml2PbfUtility.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
