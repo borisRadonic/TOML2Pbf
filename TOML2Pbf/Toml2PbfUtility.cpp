@@ -324,7 +324,7 @@ namespace TOML2PBUF
                     kvp.strValue = std::to_string(idt.value());
                     if (canConvertDoubleToFloat(idt.value()))
                     {
-                        float f = idt.value();
+                        float f = static_cast<float>(idt.value());
                         memset(kvp.value, 0, sizeof(kvp.value));
                         memcpy(kvp.value, &f, sizeof(f));
                         kvp.binDataType = PBF::DataTypes::Float32;

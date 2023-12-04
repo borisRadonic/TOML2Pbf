@@ -27,7 +27,11 @@ SOFTWARE.
 
 #pragma once
 #include <cstdint>
-#include<memory>
+#include <cstdint>
+#include <variant>
+#include <string>
+#include <chrono>
+#include <memory>
 
 namespace PBF
 {
@@ -48,6 +52,29 @@ namespace PBF
             hash *= prime;
         }
         return hash;
+    };
+
+    // Define some compound types
+    struct Date
+    {
+        uint16_t year;
+        uint8_t month;
+        uint8_t day;
+    };
+
+    struct Time
+    {
+        uint8_t reserved;
+        uint8_t hour;
+        uint8_t minute;
+        uint8_t second;
+        uint32_t nanosecond;
+    };
+
+    struct DateTime
+    {
+        Date date;
+        Time time;
     };
 
     /**
@@ -270,5 +297,242 @@ namespace PBF
         void* _memory = nullptr;
         void* _start = nullptr;
  	};
+
+    using DataVariant = std::variant<
+        std::string,     // String
+        int8_t,          // Int8
+        uint8_t,         // UInt8
+        int16_t,         // Int16
+        uint16_t,        // UInt16
+        int32_t,         // Int32
+        uint32_t,        // UInt32
+        int64_t,         // Int64
+        uint64_t,        // UInt64
+        float,           // Float32
+        double,          // Float64
+        bool,            // Boolean
+        Date,            // Date
+        Time,            // Time
+        DateTime         // DateTime
+    >;
+
+
+    struct VariantBinRecord
+    {
+        VariantBinRecord()
+        {
+        }
+        DataVariant data;
+        DataTypes   type = DataTypes::None; //It field simplifies the code and is used for quick type checks
+    };
+
+    class PBFReader
+    {
+    public:
+
+        PBFReader() : _size(0U), _version(0U)
+        {
+        }
+
+        bool read(void* memory)
+        {
+            VariantBinRecord rec;
+            std::uint32_t hashKey(0U);
+            std::uint32_t done(PBF_FILE_HEADER_SIZE);
+            std::uint32_t reg1(0U);
+            std::uint32_t data32(0U);
+            
+            /*Read size*/
+            uint32_t* pMem = static_cast<uint32_t*>(memory);
+            _size = *pMem;
+            pMem++;
+
+            if (_size == 0U)
+            {
+                return false;
+            }
+          
+            std::uint32_t vr = *pMem;
+            pMem++;
+
+            _version = vr >> 16U;
+
+            uint32_t reserved = *pMem;;
+            pMem++;
+
+            while (done < _size)
+            {
+
+                // read the hash
+                hashKey = *pMem;
+                pMem++;
+
+                reg1 = *pMem;             
+                std::uint8_t utype = static_cast<std::uint8_t>(reg1 >> 24U);
+                rec.type = static_cast<DataTypes>(utype);
+                std::uint16_t data_size = static_cast<std::uint16_t>(reg1 & 0x0000FFFF);
+
+                switch (rec.type)
+                {
+                    case DataTypes::String:
+                    {
+                        //TODO
+                        break;
+                    }
+                    case DataTypes::Int8:
+                    {
+                        data32 = *pMem;
+                        pMem++;
+                        rec.data = static_cast<int8_t>(data32);
+                        done += 4U;
+                        break;
+                    }
+                    case DataTypes::UInt8:
+                    {
+                        data32 = *pMem;
+                        pMem++;
+                        rec.data = static_cast<uint8_t>(data32);
+                        done += 4U;
+                        break;
+                    }
+                    case DataTypes::Int16:
+                    {
+                        data32 = *pMem;
+                        pMem++;
+                        rec.data = static_cast<int16_t>(data32);
+                        done += 4U;
+                        break;
+                    }
+                    case DataTypes::UInt16:
+                    {
+                        data32 = *pMem;
+                        pMem++;
+                        rec.data = static_cast<uint16_t>(data32);
+                        done += 4U;
+                        break;
+                    }
+                    case DataTypes::Int32:
+                    {
+                        data32 = *pMem;
+                        pMem++;
+                        rec.data = static_cast<int32_t>(data32);
+                        done += 4U;
+                        break;
+                    }
+                    case DataTypes::UInt32:
+                    {
+                        data32 = *pMem;
+                        pMem++;
+                        rec.data = static_cast<uint32_t>(data32);
+                        done += 4U;
+                        break;
+                    }
+                    case DataTypes::Int64:
+                    {
+                        data32 = *pMem;
+                        pMem++;
+
+                        uint64_t data64 = data32;
+                        data64 = data64 << 32;
+                        data64 = data64 | *pMem;
+                        rec.data = static_cast<int64_t>(data64);
+                        pMem++;
+                        done += 8U;
+                        break;
+                    }
+                    case DataTypes::UInt64:
+                    {
+                        data32 = *pMem;
+                        pMem++;
+
+                        uint64_t data64 = data32;
+                        data64 = data64 << 32;
+                        data64 = data64 | *pMem;
+                        rec.data = data64;
+                        pMem++;
+                        done += 8U;
+                        break;
+                    }
+                    case DataTypes::Float32:
+                    {
+                        data32 = *pMem;
+                        pMem++;
+                        rec.data = static_cast<float>(data32);
+                        done += 4U;
+                        break;
+                    }
+                    case DataTypes::Float64:
+                    {
+                        data32 = *pMem;
+                        pMem++;
+
+                        uint64_t data64 = data32;
+                        data64 = data64 << 32;
+                        data64 = data64 | *pMem;
+                        rec.data = static_cast<double>(data64);
+                        pMem++;
+                        done += 4U;
+                        break;
+                    }
+                    case DataTypes::Boolean:
+                    {
+                        data32 = *pMem;
+                        pMem++;                       
+                        rec.data = static_cast<int8_t>(data32);
+                        done += 4U;
+                        break;
+                    }
+                    case DataTypes::Date:
+                    {
+                        data32 = *pMem;
+                        pMem++;
+                        rec.data = static_cast<PBF::Date > (data32);//TODO
+                        done += 4U;
+                        break;
+                    }
+                    case DataTypes::Time:
+                    {
+                        data32 = *pMem;
+                        pMem++;
+                        //TODO
+                        uint64_t data64 = data32;
+                        data64 = data64 << 32;
+                        data64 = data64 | *pMem;
+                        pMem++;
+                        done += 8U;
+                        break;
+                    }
+                    case DataTypes::DateTime:
+                    {
+                        data32 = *pMem;
+                        pMem++;
+                        //TODO
+                        uint64_t data64 = data32;
+                        data64 = data64 << 32;
+                        data64 = data64 | *pMem;
+                        pMem++;
+
+                        done += 12U;
+                        break;
+                    }
+                    default:
+                    {
+                        return false;
+                    }
+                }
+                done += 8U;                
+                auto result = _pairs.insert(std::make_pair(hashKey, rec));
+                if (!result.second)
+                {
+                    return false;
+                }
+            }
+        }
+
+    private:
+        std::uint32_t _size = 0U;
+        std::uint16_t _version = 0U;
+        std::map<std::uint32_t, VariantBinRecord> _pairs;
+    };
 }
 
