@@ -33,6 +33,8 @@ SOFTWARE.
 #include <chrono>
 #include <memory>
 
+#define MIN_PBF_INT_SIZE 32
+
 namespace PBF
 {
     const std::uint32_t PBF_FILE_HEADER_SIZE = sizeof(std::uint32_t) * 3U;
@@ -57,18 +59,18 @@ namespace PBF
     // Define some compound types
     struct Date
     {
-        uint16_t year;
-        uint8_t month;
-        uint8_t day;
+        uint16_t year = 0;
+        uint8_t month = 0;
+        uint8_t day = 0;
     };
 
     struct Time
     {
-        uint8_t reserved;
-        uint8_t hour;
-        uint8_t minute;
-        uint8_t second;
-        uint32_t nanosecond;
+        uint8_t reserved = 0;
+        uint8_t hour = 0;
+        uint8_t minute = 0;
+        uint8_t second = 0;
+        uint32_t nanosecond = 0;
     };
 
     struct DateTime
@@ -88,16 +90,26 @@ namespace PBF
     enum class DataTypes
     {
         String = 1, /**< String */
+        #ifdef ENABLE_PBF_8BIT_TYPES
         Int8 = 2, /**< 8-bit signed integer. */
         UInt8 = 3, /**< 8-bit unsigned integer. */
+        #endif
+
+        #ifdef ENABLE_PBF_16BIT_TYPES
         Int16 = 4, /**< 16-bit signed integer. */
         UInt16 = 5, /**< 16-bit unsigned integer. */
+        #endif
+
         Int32 = 6, /**< 32-bit signed integer. */
         UInt32 = 7, /**< 32-bit unsigned integer. */
+
         Int64 = 8, /**< 64-bit signed integer. */
         UInt64 = 9, /**< 64-bit unsigned integer. */
+
         Float32 = 10, /**< 32-bit floating-point number. */
+
         Float64 = 11, /**< 64-bit floating-point number. */
+
         Boolean = 12, /**< Boolean type (1 Byte). */
         Date = 13, /**< Date type, stored as a uint32_t (year 16 bits, month 8 bits, day 8 bits). */
         Time = 14, /**< Time type, stored as a uint64_t (reserved 8 bits, hour (0-23) 8 bits, minute (0-59) 8 bits, second (0-59) 8 bits, nanosecond (0 - 999999999) 32 bits). */
@@ -183,21 +195,28 @@ namespace PBF
                 {
                     // Handle string; assume data_size gives the string length
                     char* str = const_cast<char*>( record.strData.c_str() );
-                    std::uint32_t reg1 = (record.type << 24U) | record.data_size;
+ 
+                    size_t slen = strlen(str);
+
+                    /*Always add \0 at the end of string*/
+                    std::uint32_t a_size_32 = (record.data_size + 1U + sizeof(uint32_t) - 1) / sizeof(uint32_t); // Align to next 32-bit boundary
+                    std::uint32_t a_size = a_size_32 * sizeof(std::uint32_t);
+
+                    std::uint32_t reg1 = (record.type << 24U) | a_size;
                     memcpy(pMem, static_cast<void*>(&reg1), sizeof(uint32_t));
                     pMem++;
-                                       
+                                        
+                    memset(pMem, 0U, a_size);
                     memcpy(pMem, static_cast<void*>(str), record.data_size);
 
-                    std::uint32_t size = (record.data_size + sizeof(uint32_t) - 1) / sizeof(uint32_t); // Align to next 32-bit boundary
-                    pMem += size;
-                    size = size * sizeof(std::uint32_t);
-                    recSize += size;
-
+                    pMem += a_size_32;
+                    recSize += a_size;
                     break;
                 }
+                #ifdef ENABLE_PBF_8BIT_TYPES
                 case DataTypes::Int8:
                 case DataTypes::UInt8:
+                #endif
                 case DataTypes::Boolean:
                 {
                     uint8_t byte = *static_cast<std::uint8_t*>(data);
@@ -213,6 +232,7 @@ namespace PBF
 
                     break;
                 }
+                #ifdef ENABLE_PBF_16BIT_TYPES
                 case DataTypes::Int16:
                 case DataTypes::UInt16:
                 {
@@ -228,13 +248,29 @@ namespace PBF
 
                     break;
                 }
+                #endif
+
                 case DataTypes::Int32:
                 case DataTypes::UInt32:
                 case DataTypes::Float32:
+                {
+                    std::uint32_t reg2 = *static_cast<std::uint32_t*>(data);
+                    std::uint32_t reg1 = (record.type << 24U) | record.data_size;
+                    memcpy(pMem, static_cast<void*>(&reg1), sizeof(uint32_t));
+                    pMem++;
+
+                    memcpy(pMem, static_cast<void*>(&reg2), sizeof(uint32_t));
+                    pMem++;
+
+                    recSize += 4U;
+
+                    break;
+                }
                 case DataTypes::Date:
                 {
                     std::uint32_t reg2 = *static_cast<std::uint32_t*>(data);
                     std::uint32_t reg1 = (record.type << 24U) | record.data_size;
+
                     memcpy(pMem, static_cast<void*>(&reg1), sizeof(uint32_t));
                     pMem++;
 
@@ -269,13 +305,14 @@ namespace PBF
 
                     std::uint32_t reg1 = (record.type << 24U) | record.data_size;
                     uint32_t* pDate32 = static_cast<uint32_t*>(data);
-                    pDate32++;
-
+                  
                     memcpy(pMem, static_cast<void*>(&reg1), sizeof(uint32_t));
                     pMem++;
 
                     memcpy(pMem, static_cast<void*>(pDate32), sizeof(uint32_t));
                     pMem++;
+
+                    pDate32++;
 
                     memcpy(pMem, static_cast<void*>(pDate32), sizeof(uint64_t)); //use 32 bit pointer but copy 64 bits (8 bytes)
                     pMem++;
@@ -300,10 +337,17 @@ namespace PBF
 
     using DataVariant = std::variant<
         std::string,     // String
+        
+        #ifdef ENABLE_PBF_8BIT_TYPES
         int8_t,          // Int8
         uint8_t,         // UInt8
+        #endif
+
+        #ifdef ENABLE_PBF_16BIT_TYPES
         int16_t,         // Int16
         uint16_t,        // UInt16
+        #endif
+
         int32_t,         // Int32
         uint32_t,        // UInt32
         int64_t,         // Int64
@@ -362,23 +406,36 @@ namespace PBF
 
             while (done < _size)
             {
-
                 // read the hash
                 hashKey = *pMem;
                 pMem++;
-
+                
                 reg1 = *pMem;             
                 std::uint8_t utype = static_cast<std::uint8_t>(reg1 >> 24U);
                 rec.type = static_cast<DataTypes>(utype);
                 std::uint16_t data_size = static_cast<std::uint16_t>(reg1 & 0x0000FFFF);
-
+                pMem++;
+                done += 8U;
                 switch (rec.type)
                 {
                     case DataTypes::String:
-                    {
-                        //TODO
+                    {                        
+                        const char* charData = static_cast<const char*>(static_cast<void*>(pMem));
+                        std::size_t str_size = strlen(charData);
+                        if (data_size < str_size)
+                        {
+                            return false;
+                        }
+                        std::string str(charData, str_size);
+                        rec.data = str;
+                        
+                        std::uint16_t size_32 = data_size / (sizeof(std::uint32_t));
+                        pMem += size_32;
+
+                        done += data_size;
                         break;
                     }
+                    #ifdef ENABLE_PBF_8BIT_TYPES
                     case DataTypes::Int8:
                     {
                         data32 = *pMem;
@@ -395,6 +452,9 @@ namespace PBF
                         done += 4U;
                         break;
                     }
+                    #endif
+
+                    #ifdef ENABLE_PBF_16BIT_TYPES
                     case DataTypes::Int16:
                     {
                         data32 = *pMem;
@@ -411,6 +471,8 @@ namespace PBF
                         done += 4U;
                         break;
                     }
+                    #endif
+
                     case DataTypes::Int32:
                     {
                         data32 = *pMem;
@@ -455,30 +517,28 @@ namespace PBF
                     }
                     case DataTypes::Float32:
                     {
-                        data32 = *pMem;
+                        float floatValue(0.0);
+                        std::memcpy(&floatValue, pMem, sizeof(float));
+                        rec.data = floatValue;
                         pMem++;
-                        rec.data = static_cast<float>(data32);
                         done += 4U;
                         break;
                     }
                     case DataTypes::Float64:
                     {
-                        data32 = *pMem;
+                        double dValue(0.0);
+                        std::memcpy(&dValue, pMem, sizeof(double));
+                        rec.data = dValue;
                         pMem++;
-
-                        uint64_t data64 = data32;
-                        data64 = data64 << 32;
-                        data64 = data64 | *pMem;
-                        rec.data = static_cast<double>(data64);
                         pMem++;
-                        done += 4U;
+                        done += 8U;
                         break;
                     }
                     case DataTypes::Boolean:
                     {
                         data32 = *pMem;
                         pMem++;                       
-                        rec.data = static_cast<int8_t>(data32);
+                        rec.data = static_cast<bool>(data32);
                         done += 4U;
                         break;
                     }
@@ -486,32 +546,54 @@ namespace PBF
                     {
                         data32 = *pMem;
                         pMem++;
-                        rec.data = static_cast<PBF::Date > (data32);//TODO
+
+                        Date date;
+                        date.year = static_cast<uint16_t>((data32 & 0xFFFF0000) >> 16U);
+                        date.month = static_cast<uint8_t>((data32 & 0xFF00) >> 8U);
+                        date.day = static_cast<uint8_t>(data32 & 0xFF);
+                        rec.data = date;
+
                         done += 4U;
                         break;
                     }
                     case DataTypes::Time:
                     {
-                        data32 = *pMem;
+                        uint64_t data64(0);
+                        std::memcpy(&data64, pMem, sizeof(uint64_t));
                         pMem++;
-                        //TODO
-                        uint64_t data64 = data32;
-                        data64 = data64 << 32;
-                        data64 = data64 | *pMem;
                         pMem++;
+                        Time time;
+                        time.hour       = static_cast<uint8_t>((data64 & 0xFF000000000000) >> 48U);
+                        time.minute     = static_cast<uint8_t>((data64 & 0x00FF0000000000) >> 40U);
+                        time.second     = static_cast<uint8_t>((data64 & 0x0000FF00000000) >> 32U);
+                        time.nanosecond = static_cast<uint32_t>((data64 & 0xFFFFFFFF));
+                        rec.data = time;
                         done += 8U;
                         break;
                     }
                     case DataTypes::DateTime:
                     {
+                        DateTime date_time;
+
                         data32 = *pMem;
                         pMem++;
-                        //TODO
-                        uint64_t data64 = data32;
-                        data64 = data64 << 32;
-                        data64 = data64 | *pMem;
+
+                        date_time.date.year = static_cast<uint16_t>((data32 & 0xFFFF0000) >> 16U);
+                        date_time.date.month = static_cast<uint8_t>((data32 & 0xFF00) >> 8U);
+                        date_time.date.day = static_cast<uint8_t>(data32 & 0xFF);
+                        
+                        uint64_t data64(0);
+                        std::memcpy(&data64, pMem, sizeof(uint64_t));
+                        pMem++;
                         pMem++;
 
+                        date_time.time.hour = static_cast<uint8_t>((data64 & 0xFF000000000000) >> 48U);
+                        date_time.time.minute = static_cast<uint8_t>((data64 & 0x00FF0000000000) >> 40U);
+                        date_time.time.second = static_cast<uint8_t>((data64 & 0x0000FF00000000) >> 32U);
+                        date_time.time.nanosecond = static_cast<uint32_t>((data64 & 0xFFFFFFFF));
+
+                        rec.data = date_time;
+                        
                         done += 12U;
                         break;
                     }
@@ -519,20 +601,591 @@ namespace PBF
                     {
                         return false;
                     }
-                }
-                done += 8U;                
+                }             
                 auto result = _pairs.insert(std::make_pair(hashKey, rec));
                 if (!result.second)
                 {
                     return false;
                 }
             }
+            return true;
+        }
+
+        /*template specialization*/
+
+
+        template<typename T>
+        std::optional<T> getParam(const std::string& str_key)
+        {
+            // General template, might use static_assert to generate a compile-time error for unsupported types
+            static_assert(std::is_same<T, double>::value|| 
+                          std::is_same<T, std::string>::value ||
+                          #ifdef ENABLE_PBF_8BIT_TYPES
+                          std::is_same<T, std::uint8_t>::value ||
+                          std::is_same<T, std::int8_t>::value ||
+                          #endif
+                          #ifdef ENABLE_PBF_16BIT_TYPES
+                          std::is_same<T, std::uint16_t>::value ||
+                          std::is_same<T, std::int16_t>::value ||
+                          #endif
+                          std::is_same<T, std::int32_t>::value ||
+                          std::is_same<T, std::uint32_t>::value ||
+                          std::is_same<T, std::uint64_t>::value ||
+                          std::is_same<T, std::int64_t>::value ||
+                          std::is_same<T, float>::value ||
+                          std::is_same<T, bool>::value ||
+                          std::is_same<T, PBF::Date>::value ||
+                          std::is_same<T, PBF::Time>::value ||
+                          std::is_same<T, PBF::DateTime>::value ||                          
+                          std::is_same<T, std::string>::value, "Unsupported type for getParam");
+            return std::nullopt;
+        }
+
+        // Specialization for std::string
+        template<>
+        std::optional<std::string> getParam<std::string>(const std::string& str_key)
+        {
+            auto rec = getRecord(str_key);
+            if (!rec)
+            {
+                return std::nullopt;
+            }
+            VariantBinRecord vr;
+            vr = rec.value();
+            if (vr.type != DataTypes::String)
+            {
+                return std::nullopt;
+            }
+           
+            // Safely extract std::string from the variant
+            const std::string* strPtr = std::get_if<std::string>(&vr.data);
+            if (strPtr)
+            {
+                return *strPtr; // Dereference the pointer to get the string
+            }
+            return std::nullopt;
+        }
+
+        // Specialization for PBF::Date
+        template<>
+        std::optional<PBF::Date> getParam<PBF::Date>(const std::string& str_key)
+        {
+            auto rec = getRecord(str_key);
+            if (!rec)
+            {
+                return std::nullopt;
+            }
+            VariantBinRecord vr;
+            vr = rec.value();
+            if (vr.type != DataTypes::Date)
+            {
+                return std::nullopt;
+            }
+            const PBF::Date* d = std::get_if<PBF::Date>(&vr.data);
+            if (d)
+            {
+                return *d; // Dereference the pointer to get the string
+            }
+            return std::nullopt;
+        }
+
+        // Specialization for PBF::Time
+        template<>
+        std::optional<PBF::Time> getParam<PBF::Time>(const std::string& str_key)
+        {
+            auto rec = getRecord(str_key);
+            if (!rec)
+            {
+                return std::nullopt;
+            }
+            VariantBinRecord vr;
+            vr = rec.value();
+            if (vr.type != DataTypes::Time)
+            {
+                return std::nullopt;
+            }
+            const PBF::Time* t = std::get_if<PBF::Time>(&vr.data);
+            if (t)
+            {
+                return *t; // Dereference the pointer to get the string
+            }
+            return std::nullopt;
+        }
+
+        // Specialization for PBF::DateTime
+        template<>
+        std::optional<PBF::DateTime> getParam<PBF::DateTime>(const std::string& str_key)
+        {
+            auto rec = getRecord(str_key);
+            if (!rec)
+            {
+                return std::nullopt;
+            }
+            VariantBinRecord vr;
+            vr = rec.value();
+            if (vr.type != DataTypes::DateTime)
+            {
+                return std::nullopt;
+            }
+            const PBF::DateTime* dt= std::get_if<PBF::DateTime>(&vr.data);
+            if (dt)
+            {
+                return *dt; // Dereference the pointer to get the string
+            }
+            return std::nullopt;
+        }
+
+
+        // Specialization for float
+        template<>
+        std::optional<float> getParam<float>(const std::string& str_key)
+        {
+            auto rec = getRecord(str_key);
+            if (!rec)
+            {
+                return std::nullopt;
+            }
+            VariantBinRecord vr;
+            vr = rec.value();
+            if ((vr.type != DataTypes::Float32) && (vr.type != DataTypes::Float64))
+            {
+                return std::nullopt;
+            }
+
+            if (vr.type == DataTypes::Float32)
+            {
+                const float* fPtr = std::get_if<float>(&vr.data);
+                if (!fPtr)
+                {
+                    return std::nullopt;
+                }
+                return *fPtr;
+            }
+            else
+            {
+                const double* dPtr = std::get_if<double>(&vr.data);
+                if (!dPtr)
+                {
+                    return std::nullopt;
+                }
+                //check range
+
+                double dbl = *dPtr;
+
+                if (dbl == 0.00)
+                {
+                    return 0.0f;
+                }
+
+                // Check if the value is within the range of float
+                if (dbl > static_cast<double>(std::numeric_limits<float>::max()) ||
+                    dbl < static_cast<double>(std::numeric_limits<float>::lowest()))
+                {
+                    return std::nullopt; // Out of range for float
+                }
+
+                return static_cast<float>(dbl);
+            }
+            return std::nullopt;
+        }
+
+        // Specialization for double
+        template<>
+        std::optional<double> getParam<double>(const std::string& str_key)
+        {
+            auto rec = getRecord(str_key);
+            if (!rec)
+            {
+                return std::nullopt;
+            }
+            VariantBinRecord vr;
+            vr = rec.value();
+            if ( (vr.type != DataTypes::Float32) && (vr.type != DataTypes::Float64) )
+            {
+                return std::nullopt;
+            }
+
+            if( vr.type == DataTypes::Float32 )
+            {
+                const float* fPtr = std::get_if<float>(&vr.data);
+                if (!fPtr)
+                {
+                    return std::nullopt;
+                }
+                return static_cast<double>(*fPtr);
+            }
+            else
+            {
+                const double* dPtr = std::get_if<double>(&vr.data);
+                if (!dPtr)
+                {
+                    return std::nullopt;
+                }
+                return *dPtr;
+            }            
+           
+            return std::nullopt;
+        }
+
+        // Specialization for std::int32_t
+        template<>
+        std::optional<std::int32_t> getParam<std::int32_t>(const std::string& str_key)
+        {
+            auto rec = getRecord(str_key);
+            if (!rec)
+            {
+                return std::nullopt;
+            }
+            VariantBinRecord vr;
+            vr = rec.value();
+            
+            switch (vr.type)
+            {
+                case DataTypes::Int32:
+                {
+                    const std::int32_t* i32Ptr = std::get_if<std::int32_t>(&vr.data);
+                    return *i32Ptr;
+                }
+                case DataTypes::UInt32:
+                {
+                    const std::uint32_t* ui32Ptr = std::get_if<std::uint32_t>(&vr.data);
+                    std::uint32_t val = *ui32Ptr;
+
+                    if (abs((long) val) > static_cast<int32_t>(INT32_MAX))
+                    {
+                        return std::nullopt;
+                    }
+                    return static_cast<int32_t>(val);
+                }
+                case DataTypes::UInt64:
+                {
+                    const std::uint64_t* ui64Ptr = std::get_if<std::uint64_t>(&vr.data);
+                    std::uint64_t val = *ui64Ptr;
+
+                    if (abs((long)val) > static_cast<int32_t>(INT32_MAX))
+                    {
+                        return std::nullopt;
+                    }
+                    return static_cast<int32_t>(val);
+                }
+                case DataTypes::Int64:
+                {
+                    const std::int64_t* ui64Ptr = std::get_if<std::int64_t>(&vr.data);
+                    std::int64_t val = *ui64Ptr;
+
+                    if (abs((long)val) > static_cast<int32_t>(INT32_MAX))
+                    {
+                        return std::nullopt;
+                    }
+                    return static_cast<int32_t>(val);
+                }
+                #ifdef ENABLE_PBF_8BIT_TYPES
+                case DataTypes::Int8:
+                {
+                    const std::int8_t* i8Ptr = std::get_if<std::int8_t>(&vr.data);
+                    return static_cast<int32_t>(*i8Ptr);
+                }
+                case DataTypes::UInt8:
+                {
+                    const std::uint8_t* ui8Ptr = std::get_if<std::uint8_t>(&vr.data);
+                    return static_cast<int32_t>(*ui8Ptr);
+                }
+                #endif
+                #ifdef ENABLE_PBF_16BIT_TYPES
+                case DataTypes::int16:
+                {
+                    const std::int16_t* i16Ptr = std::get_if<std::int16_t>(&vr.data);
+                    return static_cast<int32_t>(*i16Ptr);
+                }
+                case DataTypes::Uint16:
+                {
+                    const std::uint16_t* ui16Ptr = std::get_if<std::uint16_t>(&vr.data);
+                    return static_cast<int32_t>(*ui16Ptr);
+                }
+                #endif
+                default:
+                {
+                    return std::nullopt;
+                }
+            }
+            return std::nullopt;
+        }
+
+        // Specialization for std::int64_t
+        template<>
+        std::optional<std::int64_t> getParam<std::int64_t>(const std::string& str_key)
+        {
+            auto rec = getRecord(str_key);
+            if (!rec)
+            {
+                return std::nullopt;
+            }
+            VariantBinRecord vr;
+            vr = rec.value();
+
+            switch (vr.type)
+            {
+            case DataTypes::Int32:
+            {
+                const std::int32_t* i32Ptr = std::get_if<std::int32_t>(&vr.data);
+                return static_cast<int64_t>(*i32Ptr);
+            }
+            case DataTypes::UInt32:
+            {
+                const std::uint32_t* ui32Ptr = std::get_if<std::uint32_t>(&vr.data);
+                std::uint32_t val = *ui32Ptr;
+                return static_cast<int64_t>(val);
+            }
+            case DataTypes::UInt64:
+            {
+                const std::uint64_t* ui64Ptr = std::get_if<std::uint64_t>(&vr.data);
+                std::uint64_t val = *ui64Ptr;
+
+                if (abs((long)val) > static_cast<int64_t>(INT64_MAX))
+                {
+                    return std::nullopt;
+                }
+                return static_cast<int64_t>(val);
+            }
+            case DataTypes::Int64:
+            {
+                const std::int64_t* i64Ptr = std::get_if<std::int64_t>(&vr.data);
+                return static_cast<int64_t>(*i64Ptr);
+            }
+#ifdef ENABLE_PBF_8BIT_TYPES
+            case DataTypes::Int8:
+            {
+                const std::int8_t* i8Ptr = std::get_if<std::int8_t>(&vr.data);
+                return static_cast<int64_t>(*i8Ptr);
+            }
+            case DataTypes::UInt8:
+            {
+                const std::uint8_t* ui8Ptr = std::get_if<std::uint8_t>(&vr.data);
+                return static_cast<int64_t>(*ui8Ptr);
+            }
+#endif
+#ifdef ENABLE_PBF_16BIT_TYPES
+            case DataTypes::int16:
+            {
+                const std::int16_t* i16Ptr = std::get_if<std::int16_t>(&vr.data);
+                return static_cast<int64_t>(*i16Ptr);
+            }
+            case DataTypes::Uint16:
+            {
+                const std::uint16_t* ui16Ptr = std::get_if<std::uint16_t>(&vr.data);
+                return static_cast<int64_t>(*ui16Ptr);
+            }
+#endif
+            default:
+            {
+                return std::nullopt;
+            }
+            }
+            return std::nullopt;
+        }
+
+        // Specialization for std::uint32_t
+        template<>
+        std::optional<std::uint32_t> getParam<std::uint32_t>(const std::string& str_key)
+        {
+            auto rec = getRecord(str_key);
+            if (!rec)
+            {
+                return std::nullopt;
+            }
+            VariantBinRecord vr;
+            vr = rec.value();
+
+            switch (vr.type)
+            {
+            case DataTypes::UInt32:
+            {
+                const std::uint32_t* ui32Ptr = std::get_if<std::uint32_t>(&vr.data);
+                return *ui32Ptr;
+            }
+            case DataTypes::Int32:
+            {
+                const std::int32_t* i32Ptr = std::get_if<std::int32_t>(&vr.data);
+                std::int32_t val = *i32Ptr;
+
+                if (val < 0)
+                {
+                    return std::nullopt;
+                }
+                return static_cast<uint32_t>(val);
+            }
+            case DataTypes::UInt64:
+            {
+                const std::uint64_t* ui64Ptr = std::get_if<std::uint64_t>(&vr.data);
+                std::uint64_t val = *ui64Ptr;
+
+                if (abs((long)val) > static_cast<uint32_t>(UINT32_MAX))
+                {
+                    return std::nullopt;
+                }
+                return static_cast<uint32_t>(val);
+            }
+            case DataTypes::Int64:
+            {
+                const std::int64_t* ui64Ptr = std::get_if<std::int64_t>(&vr.data);
+                std::int64_t val = *ui64Ptr;
+                if (val < 0)
+                {
+                    return std::nullopt;
+                }
+
+                if (abs((long)val) > static_cast<uint32_t>(UINT32_MAX))
+                {
+                    return std::nullopt;
+                }
+                return static_cast<uint32_t>(val);
+            }
+#ifdef ENABLE_PBF_8BIT_TYPES
+            case DataTypes::Int8:
+            {
+                const std::int8_t* i8Ptr = std::get_if<std::int8_t>(&vr.data);
+                std::int8_t val = *i8Ptr;
+                if (val < 0)
+                {
+                    return std::nullopt;
+                }
+                return static_cast<uint32_t>(val);
+            }
+            case DataTypes::UInt8:
+            {
+                const std::uint8_t* ui8Ptr = std::get_if<std::uint8_t>(&vr.data);
+                return static_cast<uint32_t>(*ui8Ptr);
+            }
+#endif
+#ifdef ENABLE_PBF_16BIT_TYPES
+            case DataTypes::int16:
+            {
+                const std::int16_t* i16Ptr = std::get_if<std::int16_t>(&vr.data);
+                std::int16_t val = *i16Ptr;
+                if (val < 0)
+                {
+                    return std::nullopt;
+                }
+                return static_cast<uint32_t>(*i16Ptr);
+            }
+            case DataTypes::Uint16:
+            {
+                const std::uint16_t* ui16Ptr = std::get_if<std::uint16_t>(&vr.data);
+                return static_cast<uint32_t>(*ui16Ptr);
+            }
+#endif
+            default:
+            {
+                return std::nullopt;
+            }
+            }
+            return std::nullopt;
+        }
+
+        // Specialization for std::uint64_t
+        template<>
+        std::optional<std::uint64_t> getParam<std::uint64_t>(const std::string& str_key)
+        {
+            auto rec = getRecord(str_key);
+            if (!rec)
+            {
+                return std::nullopt;
+            }
+            VariantBinRecord vr;
+            vr = rec.value();
+
+            switch (vr.type)
+            {
+            case DataTypes::UInt32:
+            {
+                const std::uint32_t* ui32Ptr = std::get_if<std::uint32_t>(&vr.data);
+                return static_cast<uint64_t> (*ui32Ptr);
+            }
+            case DataTypes::Int32:
+            {
+                const std::int32_t* i32Ptr = std::get_if<std::int32_t>(&vr.data);
+                std::int32_t val = *i32Ptr;
+
+                if (val < 0)
+                {
+                    return std::nullopt;
+                }
+                return static_cast<uint64_t>(val);
+            }
+            case DataTypes::Int64:
+            {
+                const std::int64_t* i64Ptr = std::get_if<std::int64_t>(&vr.data);
+                std::int64_t val = *i64Ptr;
+
+                if (abs((long)val) > static_cast<uint64_t>(UINT64_MAX))
+                {
+                    return std::nullopt;
+                }
+                return static_cast<uint64_t>(val);
+            }
+            case DataTypes::UInt64:
+            {
+                const std::uint64_t* ui64Ptr = std::get_if<std::uint64_t>(&vr.data);
+                return *ui64Ptr;
+            }
+#ifdef ENABLE_PBF_8BIT_TYPES
+            case DataTypes::Int8:
+            {
+                const std::int8_t* i8Ptr = std::get_if<std::int8_t>(&vr.data);
+                std::int8_t val = *i8Ptr;
+                if (val < 0)
+                {
+                    return std::nullopt;
+                }
+                return static_cast<uint64_t>(val);
+            }
+            case DataTypes::UInt8:
+            {
+                const std::uint8_t* ui8Ptr = std::get_if<std::uint8_t>(&vr.data);
+                return static_cast<uint64_t>(*ui8Ptr);
+            }
+#endif
+#ifdef ENABLE_PBF_16BIT_TYPES
+            case DataTypes::int16:
+            {
+                const std::int16_t* i16Ptr = std::get_if<std::int16_t>(&vr.data);
+                std::int16_t val = *i16Ptr;
+                if (val < 0)
+                {
+                    return std::nullopt;
+                }
+                return static_cast<uint64_t>(*i16Ptr);
+            }
+            case DataTypes::Uint16:
+            {
+                const std::uint16_t* ui16Ptr = std::get_if<std::uint16_t>(&vr.data);
+                return static_cast<uint64_t>(*ui16Ptr);
+            }
+#endif
+            default:
+            {
+                return std::nullopt;
+            }
+            }
+            return std::nullopt;
         }
 
     private:
+
+        std::optional<VariantBinRecord> getRecord(const std::string& str_key)
+        {
+            std::string_view strView(str_key);
+            std::uint32_t key = pbfHash(strView);
+            auto it = _pairs.find(key);
+            if (it == _pairs.end())
+            {
+                return std::nullopt;
+            }
+            return it->second;
+        }
+
         std::uint32_t _size = 0U;
         std::uint16_t _version = 0U;
         std::map<std::uint32_t, VariantBinRecord> _pairs;
     };
 }
-

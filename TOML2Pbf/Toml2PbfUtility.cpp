@@ -75,7 +75,7 @@ namespace TOML2PBUF
                         }
                         else
                         {
-                            const toml::node* node = arr->get(i);                            
+                            const toml::node* node = arr->get(i);
                             std::uint32_t hk = PBF::pbfHash(arrayElementKey);
                             BinaryKeyValuePair kvp;
                             kvp.hashedKey = hk;
@@ -111,16 +111,20 @@ namespace TOML2PBUF
             {
             case PBF::DataTypes::String:
             {
-                std::uint32_t size2 = (value.size + sizeof(uint32_t) - 1) / sizeof(uint32_t); // Align to next 32-bit boundary
+                std::uint32_t size2 = (value.size + 1U + sizeof(uint32_t) - 1) / sizeof(uint32_t); // Align to next 32-bit boundary
                 size2 = size2 * sizeof(std::uint32_t);
                 size += size2;
                 break;
             }
+            #ifdef ENABLE_PBF_8BIT_TYPES
             case PBF::DataTypes::Int8:
             case PBF::DataTypes::UInt8:
+            #endif
             case PBF::DataTypes::Boolean:
+            #ifdef ENABLE_PBF_16BIT_TYPES
             case PBF::DataTypes::Int16:
             case PBF::DataTypes::UInt16:
+            #endif
             case PBF::DataTypes::Int32:
             case PBF::DataTypes::UInt32:
             case PBF::DataTypes::Float32:
@@ -178,15 +182,21 @@ namespace TOML2PBUF
 
         if (value >= 0)
         {
+            #ifdef ENABLE_PBF_8BIT_TYPES
             if (value <= static_cast<int64_t>(UINT8_MAX))
             {
                 return DataTypes::UInt8;
             }
-            else if (value <= static_cast<int64_t>(UINT16_MAX))
+            #endif
+
+            #ifdef ENABLE_PBF_16BIT_TYPES
+            if (value <= static_cast<int64_t>(UINT16_MAX))
             {
                 return DataTypes::UInt16;
             }
-            else if (value <= static_cast<int64_t>(UINT32_MAX))
+            #endif
+            
+            if (value <= static_cast<int64_t>(UINT32_MAX))
             {
                 return DataTypes::UInt32;
             }
@@ -197,15 +207,21 @@ namespace TOML2PBUF
         }
         else
         {
+            #ifdef ENABLE_PBF_8BIT_TYPES
             if (value >= static_cast<int64_t>(INT8_MIN))
             {
                 return DataTypes::Int8;
             }
-            else if (value >= static_cast<int64_t>(INT16_MIN))
+            #endif
+
+            #ifdef ENABLE_PBF_16BIT_TYPES
+            if (value >= static_cast<int64_t>(INT16_MIN))
             {
                 return DataTypes::Int16;
             }
-            else if (value >= static_cast<int64_t>(INT32_MIN))
+            #endif
+
+            if (value >= static_cast<int64_t>(INT32_MIN))
             {
                 return DataTypes::Int32;
             }
@@ -242,6 +258,8 @@ namespace TOML2PBUF
                     kvp.strValue = std::to_string(idt.value());
                     switch (kvp.binDataType)
                     {
+                    
+                    #ifdef ENABLE_PBF_8BIT_TYPES
                     case PBF::DataTypes::Int8:
                     {
                         int8_t v = static_cast<int8_t>(idt.value());
@@ -258,6 +276,9 @@ namespace TOML2PBUF
                         kvp.size = 1U;
                         break;
                     }
+                    #endif
+
+                    #ifdef ENABLE_PBF_16BIT_TYPES
                     case PBF::DataTypes::Int16:
                     {
                         int16_t v = static_cast<int16_t>(idt.value());
@@ -274,6 +295,7 @@ namespace TOML2PBUF
                         kvp.size = 2U;
                         break;
                     }
+                    #endif
 
                     case PBF::DataTypes::Int32:
                     {
@@ -366,7 +388,7 @@ namespace TOML2PBUF
                 uint32_t vdate = (static_cast<uint32_t>(d.year) << 16) | (static_cast<uint32_t>(d.month) << 8) | static_cast<uint32_t>(d.day);
 
                 std::tm date = {};
-                date.tm_year = static_cast<int>(d.year);
+                date.tm_year = static_cast<int>(d.year) - 1900;
                 date.tm_mon = static_cast<int>(d.month);
                 date.tm_mday = static_cast<int>(d.day);
                 kvp.strValue = formatDate(date);
@@ -400,9 +422,11 @@ namespace TOML2PBUF
             {
                 toml::date_time dt = idt.value();
                 kvp.binDataType = PBF::DataTypes::DateTime;
+                
                 uint32_t vdate = (static_cast<uint32_t>(dt.date.year) << 16) |
                     static_cast<uint32_t>(dt.date.month) << 8 |
                     static_cast<uint32_t>(dt.date.day);
+
                 uint64_t vtime = static_cast<uint64_t>(dt.time.hour) << 48 |
                     static_cast<uint64_t>(dt.time.minute) << 40 |
                     static_cast<uint64_t>(dt.time.second) << 32 |
@@ -410,17 +434,16 @@ namespace TOML2PBUF
 
                 memset(kvp.value, 0, sizeof(kvp.value));
 
-                void* pDate = static_cast<void*>(kvp.value);
-                uint32_t* pDate32 = static_cast<uint32_t*>(pDate);
-                *pDate32 = vdate;
-                pDate32++;
+                memcpy(kvp.value, &vdate, sizeof(uint32_t));
 
-                void* pTime = static_cast<void*>(pDate32);
-                uint64_t* pTime64 = static_cast<uint64_t*>(pTime);
-                *pTime64 = vtime;
+                uint8_t* pTime = static_cast<uint8_t*>(kvp.value);
+                pTime += 4U;
+
+                memcpy(pTime, &vtime, sizeof(uint64_t));
+              
 
                 std::tm date = {};
-                date.tm_year = static_cast<int>(dt.date.year);
+                date.tm_year = static_cast<int>(dt.date.year) - 1900;
                 date.tm_mon = static_cast<int>(dt.date.month);
                 date.tm_mday = static_cast<int>(dt.date.day);
 

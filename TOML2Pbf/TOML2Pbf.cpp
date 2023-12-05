@@ -27,6 +27,7 @@ SOFTWARE.
 #include "toml.hpp"
 #include "Toml2PbfUtility.h"
 #include <fstream>
+#include <sstream>
 #include <iostream>
 #include <cstdint>
 #include <string>
@@ -115,7 +116,7 @@ int main(int argc, char** argv)
         util.forEachElement(   [&writer, &written, &mem_size](BinaryKeyValuePair elem)
                                {
                                     BinaryDataRecord record;
-                                    record.strData = elem.strValue;
+                                    record.strData = elem.strValue;                                    
                                     record.data_size = elem.size;
                                     record.hash = elem.hashedKey;
                                     record.type = static_cast<std::uint8_t>(elem.binDataType);

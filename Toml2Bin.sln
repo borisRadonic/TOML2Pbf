@@ -9,6 +9,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TOML2Pbf", "TOML2Pbf\TOML2P
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ParamBinCpp", "ParamBinCpp\ParamBinCpp.vcxproj", "{EBCFF42E-B6E1-4B2C-A615-884629DCB553}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TOML2Pbf-Test", "TOML2Pbf-Test\TOML2Pbf-Test.vcxproj", "{0CC32E40-0197-4233-97A1-AB439CA1C3DF}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -41,6 +43,14 @@ Global
 		{EBCFF42E-B6E1-4B2C-A615-884629DCB553}.Release|x64.Build.0 = Release|x64
 		{EBCFF42E-B6E1-4B2C-A615-884629DCB553}.Release|x86.ActiveCfg = Release|Win32
 		{EBCFF42E-B6E1-4B2C-A615-884629DCB553}.Release|x86.Build.0 = Release|Win32
+		{0CC32E40-0197-4233-97A1-AB439CA1C3DF}.Debug|x64.ActiveCfg = Debug|x64
+		{0CC32E40-0197-4233-97A1-AB439CA1C3DF}.Debug|x64.Build.0 = Debug|x64
+		{0CC32E40-0197-4233-97A1-AB439CA1C3DF}.Debug|x86.ActiveCfg = Debug|Win32
+		{0CC32E40-0197-4233-97A1-AB439CA1C3DF}.Debug|x86.Build.0 = Debug|Win32
+		{0CC32E40-0197-4233-97A1-AB439CA1C3DF}.Release|x64.ActiveCfg = Release|x64
+		{0CC32E40-0197-4233-97A1-AB439CA1C3DF}.Release|x64.Build.0 = Release|x64
+		{0CC32E40-0197-4233-97A1-AB439CA1C3DF}.Release|x86.ActiveCfg = Release|Win32
+		{0CC32E40-0197-4233-97A1-AB439CA1C3DF}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
