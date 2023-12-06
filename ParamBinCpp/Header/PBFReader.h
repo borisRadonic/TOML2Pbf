@@ -33,8 +33,13 @@ SOFTWARE.
 #include <memory>
 #include "Pbf.h"
 
+
+
+
 namespace PBF
 {
+    #define PBF_MEM_ALIGMENT	4U
+
     using DataVariant = std::variant <
         std::string,     // String
 
@@ -118,7 +123,8 @@ namespace PBF
                 switch (rec.type)
                 {
                 case DataTypes::String:
-                {
+                {                    
+
                     const char* charData = static_cast<const char*>(static_cast<void*>(pMem));
                     std::size_t str_size = strlen(charData);
                     if (data_size < str_size)
@@ -137,18 +143,12 @@ namespace PBF
 #ifdef ENABLE_PBF_8BIT_TYPES
                 case DataTypes::Int8:
                 {
-                    data32 = *pMem;
-                    pMem++;
-                    rec.data = static_cast<int8_t>(data32);
-                    done += 4U;
+                    rec.data = readData32<int8_t>(pMem, done);
                     break;
                 }
                 case DataTypes::UInt8:
                 {
-                    data32 = *pMem;
-                    pMem++;
-                    rec.data = static_cast<uint8_t>(data32);
-                    done += 4U;
+                    rec.data = readData32<uint8_t>(pMem, done);
                     break;
                 }
 #endif
@@ -156,36 +156,23 @@ namespace PBF
 #ifdef ENABLE_PBF_16BIT_TYPES
                 case DataTypes::Int16:
                 {
-                    data32 = *pMem;
-                    pMem++;
-                    rec.data = static_cast<int16_t>(data32);
-                    done += 4U;
+                    rec.data = readData32<int16_t>(pMem, done);
                     break;
                 }
                 case DataTypes::UInt16:
                 {
-                    data32 = *pMem;
-                    pMem++;
-                    rec.data = static_cast<uint16_t>(data32);
-                    done += 4U;
+                    rec.data = readData32<uint16_t>(pMem, done);
                     break;
                 }
 #endif
-
                 case DataTypes::Int32:
                 {
-                    data32 = *pMem;
-                    pMem++;
-                    rec.data = static_cast<int32_t>(data32);
-                    done += 4U;
+                    rec.data = readData32<int32_t>(pMem, done);
                     break;
                 }
                 case DataTypes::UInt32:
                 {
-                    data32 = *pMem;
-                    pMem++;
-                    rec.data = static_cast<uint32_t>(data32);
-                    done += 4U;
+                    rec.data = readData32<uint32_t>(pMem, done);
                     break;
                 }
                 case DataTypes::Int64:
@@ -216,84 +203,58 @@ namespace PBF
                 }
                 case DataTypes::Float32:
                 {
-                    float floatValue(0.0);
-                    std::memcpy(&floatValue, pMem, sizeof(float));
-                    rec.data = floatValue;
-                    pMem++;
-                    done += 4U;
+                    rec.data = readData32<float>(pMem, done);
                     break;
                 }
                 case DataTypes::Float64:
                 {
-                    double dValue(0.0);
-                    std::memcpy(&dValue, pMem, sizeof(double));
-                    rec.data = dValue;
-                    pMem++;
-                    pMem++;
-                    done += 8U;
+                    rec.data = readData64<double>(pMem, done);
                     break;
                 }
                 case DataTypes::Boolean:
                 {
-                    data32 = *pMem;
-                    pMem++;
-                    rec.data = static_cast<bool>(data32);
-                    done += 4U;
+                    rec.data = readData32<bool>(pMem, done);
                     break;
                 }
                 case DataTypes::Date:
-                {
-                    data32 = *pMem;
-                    pMem++;
-
+                {                   
+                    data32 = readData32<std::uint32_t>(pMem, done);
+                    
                     Date date;
-                    date.year = static_cast<uint16_t>((data32 & 0xFFFF0000) >> 16U);
-                    date.month = static_cast<uint8_t>((data32 & 0xFF00) >> 8U);
-                    date.day = static_cast<uint8_t>(data32 & 0xFF);
+                    date.year = static_cast<std::uint16_t>((data32 & 0xFFFF0000) >> 16U);
+                    date.month = static_cast<std::uint8_t>((data32 & 0xFF00) >> 8U);
+                    date.day = static_cast<std::uint8_t>(data32 & 0xFF);
                     rec.data = date;
-
-                    done += 4U;
                     break;
                 }
                 case DataTypes::Time:
                 {
-                    uint64_t data64(0);
-                    std::memcpy(&data64, pMem, sizeof(uint64_t));
-                    pMem++;
-                    pMem++;
+                    std::uint64_t data64 = readData64<std::uint64_t>(pMem, done);
                     Time time;
-                    time.hour = static_cast<uint8_t>((data64 & 0xFF000000000000) >> 48U);
-                    time.minute = static_cast<uint8_t>((data64 & 0x00FF0000000000) >> 40U);
-                    time.second = static_cast<uint8_t>((data64 & 0x0000FF00000000) >> 32U);
-                    time.nanosecond = static_cast<uint32_t>((data64 & 0xFFFFFFFF));
+                    time.hour = static_cast<std::uint8_t>((data64 & 0xFF000000000000) >> 48U);
+                    time.minute = static_cast<std::uint8_t>((data64 & 0x00FF0000000000) >> 40U);
+                    time.second = static_cast<std::uint8_t>((data64 & 0x0000FF00000000) >> 32U);
+                    time.nanosecond = static_cast<std::uint32_t>((data64 & 0xFFFFFFFF));
                     rec.data = time;
-                    done += 8U;
                     break;
                 }
                 case DataTypes::DateTime:
                 {
                     DateTime date_time;
 
-                    data32 = *pMem;
-                    pMem++;
+                    data32 = readData32<std::uint32_t>(pMem, done);
+                    date_time.date.year = static_cast<std::uint16_t>((data32 & 0xFFFF0000) >> 16U);
+                    date_time.date.month = static_cast<std::uint8_t>((data32 & 0xFF00) >> 8U);
+                    date_time.date.day = static_cast<std::uint8_t>(data32 & 0xFF);
 
-                    date_time.date.year = static_cast<uint16_t>((data32 & 0xFFFF0000) >> 16U);
-                    date_time.date.month = static_cast<uint8_t>((data32 & 0xFF00) >> 8U);
-                    date_time.date.day = static_cast<uint8_t>(data32 & 0xFF);
-
-                    uint64_t data64(0);
-                    std::memcpy(&data64, pMem, sizeof(uint64_t));
-                    pMem++;
-                    pMem++;
-
-                    date_time.time.hour = static_cast<uint8_t>((data64 & 0xFF000000000000) >> 48U);
-                    date_time.time.minute = static_cast<uint8_t>((data64 & 0x00FF0000000000) >> 40U);
-                    date_time.time.second = static_cast<uint8_t>((data64 & 0x0000FF00000000) >> 32U);
-                    date_time.time.nanosecond = static_cast<uint32_t>((data64 & 0xFFFFFFFF));
+                    std::uint64_t data64 = readData64<std::uint64_t>(pMem, done);                   
+                    date_time.time.hour = static_cast<std::uint8_t>((data64 & 0xFF000000000000) >> 48U);
+                    date_time.time.minute = static_cast<std::uint8_t>((data64 & 0x00FF0000000000) >> 40U);
+                    date_time.time.second = static_cast<std::uint8_t>((data64 & 0x0000FF00000000) >> 32U);
+                    date_time.time.nanosecond = static_cast<std::uint32_t>((data64 & 0xFFFFFFFF));
 
                     rec.data = date_time;
-
-                    done += 12U;
+                   
                     break;
                 }
                 default:
@@ -350,7 +311,7 @@ namespace PBF
                 std::is_same<T, std::string>::value, "Unsupported type for getParam");
             return std::nullopt;
         }
-
+              
         // Specialization for std::string
         template<>
         std::optional<std::string> getParam<std::string>(const std::string& str_key)
@@ -366,14 +327,7 @@ namespace PBF
             {
                 return std::nullopt;
             }
-
-            // Safely extract std::string from the variant
-            const std::string* strPtr = std::get_if<std::string>(&vr.data);
-            if (strPtr)
-            {
-                return *strPtr; // Dereference the pointer to get the string
-            }
-            return std::nullopt;
+            return convertVariantToType<std::string>(rec->data);
         }
 
         // Specialization for bool
@@ -391,12 +345,7 @@ namespace PBF
             {
                 return std::nullopt;
             }
-            const bool* b = std::get_if<bool>(&vr.data);
-            if (b)
-            {
-                return *b;
-            }
-            return std::nullopt;
+            return convertVariantToType<bool>(rec->data);
         }
 
         // Specialization for PBF::Date
@@ -414,12 +363,7 @@ namespace PBF
             {
                 return std::nullopt;
             }
-            const PBF::Date* d = std::get_if<PBF::Date>(&vr.data);
-            if (d)
-            {
-                return *d; // Dereference the pointer to get the string
-            }
-            return std::nullopt;
+            return convertVariantToType<PBF::Date>(rec->data);
         }
 
         // Specialization for PBF::Time
@@ -437,12 +381,7 @@ namespace PBF
             {
                 return std::nullopt;
             }
-            const PBF::Time* t = std::get_if<PBF::Time>(&vr.data);
-            if (t)
-            {
-                return *t; // Dereference the pointer to get the string
-            }
-            return std::nullopt;
+            return convertVariantToType<PBF::Time>(rec->data);
         }
 
         // Specialization for PBF::DateTime
@@ -460,12 +399,7 @@ namespace PBF
             {
                 return std::nullopt;
             }
-            const PBF::DateTime* dt = std::get_if<PBF::DateTime>(&vr.data);
-            if (dt)
-            {
-                return *dt; // Dereference the pointer to get the string
-            }
-            return std::nullopt;
+            return convertVariantToType<PBF::DateTime>(rec->data);
         }
 
 
@@ -487,12 +421,7 @@ namespace PBF
 
             if (vr.type == DataTypes::Float32)
             {
-                const float* fPtr = std::get_if<float>(&vr.data);
-                if (!fPtr)
-                {
-                    return std::nullopt;
-                }
-                return *fPtr;
+                return convertVariantToType<float>(rec->data);
             }
             else
             {
@@ -509,7 +438,6 @@ namespace PBF
                 {
                     return 0.0f;
                 }
-
                 // Check if the value is within the range of float
                 if (dbl > static_cast<double>(std::numeric_limits<float>::max()) ||
                     dbl < static_cast<double>(std::numeric_limits<float>::lowest()))
@@ -540,21 +468,16 @@ namespace PBF
 
             if (vr.type == DataTypes::Float32)
             {
-                const float* fPtr = std::get_if<float>(&vr.data);
-                if (!fPtr)
+                std::optional<float> optf = convertVariantToType<float>(rec->data);
+                if (optf == std::nullopt)
                 {
                     return std::nullopt;
                 }
-                return static_cast<double>(*fPtr);
+                return static_cast<double>(optf.value());
             }
             else
             {
-                const double* dPtr = std::get_if<double>(&vr.data);
-                if (!dPtr)
-                {
-                    return std::nullopt;
-                }
-                return *dPtr;
+                return convertVariantToType<double>(rec->data);
             }
 
             return std::nullopt;
@@ -576,8 +499,7 @@ namespace PBF
             {
             case DataTypes::Int32:
             {
-                const std::int32_t* i32Ptr = std::get_if<std::int32_t>(&vr.data);
-                return *i32Ptr;
+                return convertVariantToType<std::int32_t>(rec->data);
             }
             case DataTypes::UInt32:
             {
@@ -733,8 +655,7 @@ namespace PBF
             {
             case DataTypes::UInt32:
             {
-                const std::uint32_t* ui32Ptr = std::get_if<std::uint32_t>(&vr.data);
-                return *ui32Ptr;
+                return convertVariantToType<std::uint32_t>(rec->data);
             }
             case DataTypes::Int32:
             {
@@ -858,8 +779,7 @@ namespace PBF
             }
             case DataTypes::UInt64:
             {
-                const std::uint64_t* ui64Ptr = std::get_if<std::uint64_t>(&vr.data);
-                return *ui64Ptr;
+                return convertVariantToType<std::uint64_t>(rec->data);
             }
 #ifdef ENABLE_PBF_8BIT_TYPES
             case DataTypes::Int8:
@@ -915,6 +835,39 @@ namespace PBF
                 return std::nullopt;
             }
             return it->second;
+        }
+
+        template<typename T>
+        std::optional<T> convertVariantToType(const DataVariant& variantData)
+        {
+            if (auto ptr = std::get_if<T>(&variantData))
+            {
+                return *ptr;
+            }
+            return std::nullopt;
+        }
+
+        template<typename T>
+        T readData32(std::uint32_t*& pMem, std::uint32_t& done)
+        {
+            // Generic implementation for simple types like 32 bit integers and floats
+            T data;
+            std::memcpy(&data, pMem, sizeof(T));
+            pMem++;
+            done += sizeof(std::uint32_t);
+            return data;
+        }
+
+        template<typename T>
+        T readData64(std::uint32_t*& pMem, std::uint32_t& done)
+        {
+            // Generic implementation for simple types like 64 bit integers and double
+            T data;
+            std::memcpy(&data, pMem, sizeof(T));
+            pMem++;
+            pMem++;
+            done += sizeof(std::uint64_t);
+            return data;
         }
 
         std::uint32_t _size = 0U;
