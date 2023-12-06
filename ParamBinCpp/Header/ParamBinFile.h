@@ -145,6 +145,85 @@ namespace PBF
     //  ...
 
 
+    inline std::string getTypeName(PBF::DataTypes type)
+    {
+        switch (type)
+        {
+#ifdef ENABLE_PBF_8BIT_TYPES
+        case PBF::DataTypes::Int8:
+        {
+            return "Int8";
+        }
+        case PBF::DataTypes::UInt8:
+        {
+            return "UInt8";
+        }
+#endif
+
+#ifdef ENABLE_PBF_16BIT_TYPES
+        case PBF::DataTypes::Int16:
+        {
+            return "Int16";
+        }
+        case PBF::DataTypes::UInt16:
+        {
+            return "UInt16";
+        }
+#endif
+        case PBF::DataTypes::Boolean:
+        {
+            return "Boolean";
+        }
+        case PBF::DataTypes::Date:
+        {
+            return "Date";
+        }
+        case PBF::DataTypes::DateTime:
+        {
+            return "DateTime";
+        }
+        case PBF::DataTypes::Time:
+        {
+            return "Time";
+        }
+        case PBF::DataTypes::Float32:
+        {
+            return "float";
+        }
+        case PBF::DataTypes::Float64:
+        {
+            return "double";
+        }
+        case PBF::DataTypes::Int32:
+        {
+            return "Int32";
+        }
+        case PBF::DataTypes::UInt32:
+        {
+            return "UInt32";
+        }
+        case PBF::DataTypes::Int64:
+        {
+            return "Int64";
+        }
+        case PBF::DataTypes::UInt64:
+        {
+            return "UInt64";
+        }
+        case PBF::DataTypes::String:
+        {
+            return "String";
+        }
+        case PBF::DataTypes::None:
+        {
+            return "None";
+        }
+        default:
+            break;
+        }
+        return "Unknow!!!";
+    }
+
 	class ParamBinFileWriter
 	{
     public:
@@ -673,6 +752,29 @@ namespace PBF
             if (strPtr)
             {
                 return *strPtr; // Dereference the pointer to get the string
+            }
+            return std::nullopt;
+        }
+
+        // Specialization for bool
+        template<>
+        std::optional<bool> getParam<bool>(const std::string& str_key)
+        {
+            auto rec = getRecord(str_key);
+            if (!rec)
+            {
+                return std::nullopt;
+            }
+            VariantBinRecord vr;
+            vr = rec.value();
+            if (vr.type != DataTypes::Boolean)
+            {
+                return std::nullopt;
+            }
+            const bool* b = std::get_if<bool>(&vr.data);
+            if (b)
+            {
+                return *b;
             }
             return std::nullopt;
         }
