@@ -33,7 +33,7 @@ SOFTWARE.
 #include <fstream>
 #include <vector>
 #include <algorithm>
-#include "ParamBinFile.h"
+#include "PBFReader.h"
 #include <windows.h>
 
 void remove_substring(std::string& str, const std::string& remove)

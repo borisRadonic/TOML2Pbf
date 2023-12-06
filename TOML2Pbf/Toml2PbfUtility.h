@@ -27,7 +27,7 @@ SOFTWARE.
 
 #pragma once
 #include "toml.hpp"
-#include "ParamBinFile.h"
+#include "ParamBinFileWriter.h"
 #include <fstream>
 #include <iostream>
 #include <map>

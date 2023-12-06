@@ -18,7 +18,13 @@
     <ClInclude Include="framework.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Header\ParamBinFile.h">
+    <ClInclude Include="Header\ParamBinFileWriter.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Header\Pbf.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Header\PBFReader.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
