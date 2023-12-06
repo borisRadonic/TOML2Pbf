@@ -20,7 +20,9 @@
 For embedded platforms, TOML2Pbf facilitates easy access to configuration parameters from the PBF file. For instance, in C++:
 
 ```cpp
-float maxAccel = pbfReader.Read("Controller.Motor1.MaxAcceleration");
+ std::optional<double> 		dPeakTorque = pbfReader.getParam<double>("Plant.Motors[0].PeakTorque");
+ std::optional<PBF::Date> 	phoenixDate = pbfReader.getParam< PBF::Date>("phoenix_date");
+ std::optional<std::string> title 		= pbfReader.getParam<std::string>("ConfigVersion");
 
 
 

@@ -610,10 +610,21 @@ namespace PBF
             }
             return true;
         }
+             
+
+        PBF::DataTypes getType(const std::string& str_key)
+        {
+            auto rec = getRecord(str_key);
+            if (!rec)
+            {
+                return DataTypes::None;
+            }
+            VariantBinRecord vr;
+            vr = rec.value();
+            return vr.type;
+        }
 
         /*template specialization*/
-
-
         template<typename T>
         std::optional<T> getParam(const std::string& str_key)
         {

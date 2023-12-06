@@ -88,11 +88,11 @@ int main(int argc, char** argv)
         util.serializeToArray(tomlData, root);
         
 
-        outputFileRpt << "Key=value     Hash=hash_value" << std::endl;
+        outputFileRpt << "Key  hash_value" << std::endl;
         /*write in intermediate stage output info file*/ 
         util.forEachElementOrderedByKey([&outputFileRpt](BinaryKeyValuePair elem)
         {
-           outputFileRpt << elem.strKey << "=" << elem.strValue << "\t" << "Hash=" << std::to_string(elem.hashedKey) << std::endl;
+           outputFileRpt << elem.strKey << "\t" << std::to_string(elem.hashedKey) << std::endl;
         });
     
         // Close the file stream
