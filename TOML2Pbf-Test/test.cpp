@@ -2,7 +2,7 @@
 The MIT License(MIT)
 
 TOML2Pbf
-https://github.com/borisRadonic/RTSHA
+https://github.com/borisRadonic/TOML2Pbf
 
 Copyright(c) 2023 Boris Radonic
 
@@ -35,6 +35,7 @@ SOFTWARE.
 #include <algorithm>
 #include "PBFReader.h"
 #include <windows.h>
+#include "ParamBinFileWriter.h"
 
 void remove_substring(std::string& str, const std::string& remove)
 {
@@ -270,4 +271,35 @@ UART2.WriteTimeout	Type UInt32	740059371
     EXPECT_TRUE(CheckParam<float>(pbfReader, "Testing.test1.Steps[4]	
     EXPECT_TRUE(CheckParam<float>(pbfReader, "Testing.test1.Steps[5]
     */
+}
+
+// Int64 / UInt64 are written in native byte order (memcpy) and must be read back unchanged.
+TEST(PBFReader, Int64RoundTrip)
+{
+    alignas(8) std::uint32_t buf[64] = {};
+    PBF::ParamBinFileWriter w(buf, sizeof(buf));
+    w.writeHeader(0u, PBF::PBF_FILE_VERSION);
+
+    std::int64_t  i = -2;
+    std::uint64_t u = 0x1122334455667788ull;
+
+    PBF::BinaryDataRecord r1;
+    r1.hash = PBF::pbfHash("a");
+    r1.type = static_cast<std::uint8_t>(PBF::DataTypes::Int64);
+    r1.data_size = 8u;
+
+    PBF::BinaryDataRecord r2;
+    r2.hash = PBF::pbfHash("b");
+    r2.type = static_cast<std::uint8_t>(PBF::DataTypes::UInt64);
+    r2.data_size = 8u;
+
+    std::uint32_t size = PBF::PBF_FILE_HEADER_SIZE;
+    size += w.writeRecord(r1, &i);
+    size += w.writeRecord(r2, &u);
+    w.writeHeader(size, PBF::PBF_FILE_VERSION);
+
+    PBF::PBFReader rd;
+    ASSERT_TRUE(rd.read(buf));
+    EXPECT_EQ(rd.getParam<std::int64_t>("a").value_or(0), -2);
+    EXPECT_EQ(rd.getParam<std::uint64_t>("b").value_or(0u), u);
 }
