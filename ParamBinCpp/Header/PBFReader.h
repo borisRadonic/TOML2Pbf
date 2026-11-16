@@ -177,28 +177,13 @@ namespace PBF
                 }
                 case DataTypes::Int64:
                 {
-                    data32 = *pMem;
-                    pMem++;
-
-                    uint64_t data64 = data32;
-                    data64 = data64 << 32;
-                    data64 = data64 | *pMem;
-                    rec.data = static_cast<int64_t>(data64);
-                    pMem++;
-                    done += 8U;
+                    // Stored in native byte order (memcpy in ParamBinFileWriter), like Float64
+                    rec.data = readData64<std::int64_t>(pMem, done);
                     break;
                 }
                 case DataTypes::UInt64:
                 {
-                    data32 = *pMem;
-                    pMem++;
-
-                    uint64_t data64 = data32;
-                    data64 = data64 << 32;
-                    data64 = data64 | *pMem;
-                    rec.data = data64;
-                    pMem++;
-                    done += 8U;
+                    rec.data = readData64<std::uint64_t>(pMem, done);
                     break;
                 }
                 case DataTypes::Float32:
